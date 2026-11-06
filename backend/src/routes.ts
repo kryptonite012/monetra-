@@ -5,6 +5,7 @@ import authRoutes from './modules/auth/auth.routes';
 import sessionRoutes from './modules/auth/sessions.routes';
 import userRoutes from './modules/users/users.routes';
 import { categories, merchants, rules } from './modules/categories/categories.routes';
+import accountRoutes from './modules/accounts/accounts.routes';
 import paymentMethodRoutes from './modules/payment-methods/payment-methods.routes';
 
 /** Mounts every versioned API module under /api/v1. */
@@ -18,6 +19,7 @@ export function apiV1(): Router {
   router.use('/merchants', merchants.router);
   router.use('/categorization-rules', rules.router);
   router.use('/payment-methods', paymentMethodRoutes);
+  router.use('/accounts', accountRoutes);
   router.use('/admin', adminRoutes);
   return router;
 }
