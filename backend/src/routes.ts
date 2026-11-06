@@ -17,6 +17,7 @@ import budgetRoutes from './modules/budgets/budgets.routes';
 import loanRoutes from './modules/loans/loans.routes';
 import goalRoutes from './modules/goals/goals.routes';
 import investmentRoutes from './modules/investments/investments.routes';
+import { assets, liabilities, networth } from './modules/assets/assets.routes';
 import paymentMethodRoutes from './modules/payment-methods/payment-methods.routes';
 
 /** Mounts every versioned API module under /api/v1. */
@@ -44,6 +45,9 @@ export function apiV1(): Router {
   router.use('/loans', loanRoutes);
   router.use('/goals', goalRoutes);
   router.use('/investments', investmentRoutes);
+  router.use('/assets', assets.router);
+  router.use('/liabilities', liabilities.router);
+  router.use('/net-worth', networth.router);
   router.use('/admin', adminRoutes);
   return router;
 }
