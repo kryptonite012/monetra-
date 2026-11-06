@@ -13,6 +13,7 @@ import recurringRoutes from './modules/recurring/recurring.routes';
 import expenseRoutes from './modules/expenses/expenses.routes';
 import { expenseReceipts, receipts } from './modules/expenses/receipts.routes';
 import { expenseSplits, splits } from './modules/expenses/splits.routes';
+import budgetRoutes from './modules/budgets/budgets.routes';
 import paymentMethodRoutes from './modules/payment-methods/payment-methods.routes';
 
 /** Mounts every versioned API module under /api/v1. */
@@ -36,6 +37,7 @@ export function apiV1(): Router {
   router.use('/expenses', expenseSplits.router);
   router.use('/receipts', receipts.router);
   router.use('/splits', splits.router);
+  router.use('/budgets', budgetRoutes);
   router.use('/admin', adminRoutes);
   return router;
 }
