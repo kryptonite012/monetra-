@@ -40,3 +40,16 @@ describe('money', () => {
     expect(positiveMoney.safeParse('-1').success).toBe(false);
   });
 });
+
+import { containsCardNumber, luhnValid } from '../../src/lib/sensitive';
+
+describe('sensitive data detection', () => {
+  it('recognises card numbers by length and Luhn checksum', () => {
+    expect(luhnValid('4111111111111111')).toBe(true);
+    expect(containsCardNumber('card 4111 1111 1111 1111')).toBe(true);
+    expect(containsCardNumber('5500-0000-0000-0004')).toBe(true);
+    // 12-digit UPI reference numbers (UTR) are fine.
+    expect(containsCardNumber('UPI412233445566')).toBe(false);
+    expect(containsCardNumber('4111111111111112')).toBe(false);
+  });
+});

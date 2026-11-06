@@ -4,15 +4,18 @@ import { conflict, notFound, unprocessable } from '../../lib/errors';
 import { apiRouter, currencyCode, idParams, isoDate, optionalText, queryBool } from '../../lib/http';
 import { dec, moneySchema, nonNegativeMoney } from '../../lib/money';
 import { findOwned } from '../../lib/ownership';
-import { guarded } from '../../lib/sensitive';
+import { guarded, looksLikeAccountNumber } from '../../lib/sensitive';
 import { audit } from '../audit/audit.service';
 import { accountsSummary, balanceAsOf, getAccount, listAccounts } from './accounts.service';
 
 const r = apiRouter('/accounts', 'Accounts');
 
+const noAccountNumber = (v: string | null | undefined) => !v || !looksLikeAccountNumber(v);
+const NO_ACCOUNT_NUMBER = 'Do not enter full account numbers; use the last 4 digits field instead';
+
 const accountFields = z.object({
-  name: z.string().trim().min(2).max(80),
-  nickname: optionalText(40),
+  name: z.string().trim().min(2).max(80).refine(noAccountNumber, NO_ACCOUNT_NUMBER),
+  nickname: optionalText(40).refine(noAccountNumber, NO_ACCOUNT_NUMBER),
   type: z.enum(['savings', 'current', 'salary', 'cash', 'wallet', 'credit_card', 'overdraft', 'other']),
   institutionName: optionalText(120),
   accountNumberLast4: z.string().regex(/^\d{4}$/, 'Enter only the last 4 digits').nullish(),

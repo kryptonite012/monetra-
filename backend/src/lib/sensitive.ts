@@ -2,8 +2,34 @@ import { z } from 'zod';
 
 /** Field names that must never be accepted, even by accident. */
 const FORBIDDEN_KEYS = /^(cvv|cvc|cvv2|pin|upipin|upi_pin|mpin|otp|password|cardnumber|card_number|pan|netbankingpassword|ipin)$/i;
-/** 12-19 consecutive digits (optionally spaced) looks like a full card number. */
-const CARD_NUMBER = /(?:\d[ -]?){12,19}/;
+/** Runs of 13-19 digits, optionally separated by spaces or dashes. */
+const DIGIT_RUN = /\d(?:[ -]?\d){12,18}/g;
+
+/** Luhn checksum used by every payment card number. */
+export function luhnValid(digits: string): boolean {
+  let total = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i]);
+    if (i % 2 === 1) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    total += d;
+  }
+  return total % 10 === 0;
+}
+
+/** True when the text contains something that looks like a full card number (13-19 digits, Luhn-valid). */
+export function containsCardNumber(text: string): boolean {
+  for (const match of text.matchAll(DIGIT_RUN)) {
+    const digits = match[0].replace(/[ -]/g, '');
+    if (digits.length >= 13 && digits.length <= 19 && luhnValid(digits)) return true;
+  }
+  return false;
+}
+
+/** Long digit runs (9+) in free text usually mean a full bank account number was typed. */
+export const looksLikeAccountNumber = (text: string) => /\d{9,}/.test(text.replace(/[ -]/g, ''));
 
 /**
  * Rejects payloads that contain secrets Monetra must never store
@@ -12,7 +38,7 @@ const CARD_NUMBER = /(?:\d[ -]?){12,19}/;
 export function assertNoSensitiveData(value: unknown, ctx: z.RefinementCtx, path: (string | number)[] = []): void {
   if (value === null || value === undefined) return;
   if (typeof value === 'string') {
-    if (CARD_NUMBER.test(value)) {
+    if (containsCardNumber(value)) {
       ctx.addIssue({ code: 'custom', path, message: 'Do not enter full card or account numbers; use the last 4 digits only' });
     }
     return;
