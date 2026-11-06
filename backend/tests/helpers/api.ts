@@ -34,6 +34,13 @@ export async function createUser(overrides: Partial<{ email: string; fullName: s
   };
 }
 
+/** Fetches a CSRF token and returns the Cookie/header pair required by refresh and logout. */
+export async function csrf(cookie = ''): Promise<{ Cookie: string; 'X-CSRF-Token': string }> {
+  const res = await api().get('/api/v1/auth/csrf');
+  const token = res.body.data.csrfToken as string;
+  return { Cookie: [cookie, `monetra_csrf=${token}`].filter(Boolean).join('; '), 'X-CSRF-Token': token };
+}
+
 export function cookieValue(res: request.Response, name: string): string | undefined {
   const setCookie = ([] as string[]).concat(res.headers['set-cookie'] ?? []);
   const match = setCookie.find((c) => c.startsWith(`${name}=`));

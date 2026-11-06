@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { db } from '../../src/db/knex';
-import { api, cookieValue, createUser } from '../helpers/api';
+import { api, cookieValue, createUser, csrf } from '../helpers/api';
 import { resetDatabase } from '../helpers/db';
 
-const refresh = (cookie: string) => api().post('/api/v1/auth/refresh').set('Cookie', cookie);
+const refresh = async (cookie: string) => api().post('/api/v1/auth/refresh').set(await csrf(cookie));
 
 describe('refresh token rotation', () => {
   beforeAll(resetDatabase);
@@ -50,14 +50,26 @@ describe('refresh token rotation', () => {
 
   it('logs out and invalidates the session', async () => {
     const user = await createUser();
-    const out = await api().post('/api/v1/auth/logout').set('Cookie', user.cookie).set(user.auth);
+    const out = await api().post('/api/v1/auth/logout').set(await csrf(user.cookie)).set(user.auth);
     expect(out.status).toBe(204);
     expect((await refresh(user.cookie)).status).toBe(401);
     expect((await api().get('/api/v1/auth/me').set(user.auth)).status).toBe(401);
   });
 
   it('rejects refresh without a cookie', async () => {
-    const res = await api().post('/api/v1/auth/refresh');
+    const res = await api().post('/api/v1/auth/refresh').set(await csrf());
     expect(res.status).toBe(401);
+  });
+
+  it('rejects refresh and logout without a matching CSRF token', async () => {
+    const user = await createUser();
+    const noToken = await api().post('/api/v1/auth/refresh').set('Cookie', user.cookie);
+    expect(noToken.status).toBe(403);
+    expect(noToken.body.error.code).toBe('CSRF_FAILED');
+    const mismatch = await api()
+      .post('/api/v1/auth/logout')
+      .set('Cookie', `${user.cookie}; monetra_csrf=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`)
+      .set('X-CSRF-Token', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+    expect(mismatch.status).toBe(403);
   });
 });
