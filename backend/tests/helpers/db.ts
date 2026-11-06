@@ -1,10 +1,14 @@
 import { db } from '../../src/db/knex';
 
-/** Empties every application table between test files (TRUNCATE skips row triggers). */
+/**
+ * Removes all user-generated data between test files while keeping reference
+ * data (system categories). Deleting users cascades to every owned row; the
+ * ledger purge flag is the sanctioned way to delete immutable transactions.
+ */
 export async function resetDatabase(): Promise<void> {
-  const { rows } = await db.raw<{ rows: Array<{ tablename: string }> }>(
-    `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE 'knex_%'`,
-  );
-  if (rows.length === 0) return;
-  await db.raw(`TRUNCATE ${rows.map((r) => `"${r.tablename}"`).join(', ')} RESTART IDENTITY CASCADE`);
+  await db.transaction(async (trx) => {
+    await trx.raw(`SET LOCAL monetra.allow_ledger_purge = 'on'`);
+    await trx('users').delete();
+  });
+  await db.raw('TRUNCATE audit_logs, login_events RESTART IDENTITY');
 }
