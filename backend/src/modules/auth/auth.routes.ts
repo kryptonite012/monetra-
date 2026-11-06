@@ -1,6 +1,13 @@
 import { apiRouter } from '../../lib/http';
 import { notFound } from '../../lib/errors';
-import { loginSchema, registerSchema } from './auth.schemas';
+import { z } from 'zod';
+import { loginSchema, phoneSchema, registerSchema } from './auth.schemas';
+import {
+  confirmEmailVerification,
+  confirmPhoneVerification,
+  sendEmailVerification,
+  sendPhoneVerification,
+} from './verification.service';
 import { completeLogin, loadUserWithProfile, login, register } from './auth.service';
 import { revokeByRefreshToken, rotateRefreshToken } from './refresh.service';
 import { clearRefreshCookie, REFRESH_COOKIE, revokeSession, setRefreshCookie } from './session.service';
@@ -17,6 +24,7 @@ r.post('/register', {
   body: registerSchema,
   handler: async ({ body, req, res }) => {
     const userId = await register(body, req);
+    await sendEmailVerification(userId);
     const result = await completeLogin(userId, req, 'registration');
     if (result.mfaRequired) throw new Error('unreachable');
     setRefreshCookie(res, result.session.refreshToken);
@@ -80,6 +88,39 @@ r.post('/logout', {
     clearRefreshCookie(res);
     if (userId) await audit({ action: 'auth.logout', userId, actorId: userId, req });
     return undefined;
+  },
+});
+
+r.post('/verify-email/request', {
+  summary: 'Send (or resend) the email verification link',
+  handler: async ({ user }) => {
+    await sendEmailVerification(user.id);
+    return { sent: true };
+  },
+});
+
+r.post('/verify-email/confirm', {
+  summary: 'Confirm an email address using the emailed token',
+  public: true,
+  body: z.object({ token: z.string().min(20).max(200) }),
+  handler: async ({ body, req }) => {
+    await confirmEmailVerification(body.token, req);
+    return { verified: true };
+  },
+});
+
+r.post('/verify-phone/request', {
+  summary: 'Send a 6-digit verification code by SMS (optionally to a new number)',
+  body: z.object({ phone: phoneSchema.optional() }),
+  handler: async ({ body, user }) => sendPhoneVerification(user.id, body.phone),
+});
+
+r.post('/verify-phone/confirm', {
+  summary: 'Confirm the SMS verification code',
+  body: z.object({ code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code') }),
+  handler: async ({ body, user, req }) => {
+    await confirmPhoneVerification(user.id, body.code, req);
+    return { verified: true };
   },
 });
 
