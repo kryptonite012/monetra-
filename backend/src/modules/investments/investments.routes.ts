@@ -7,6 +7,7 @@ import { nonNegativeMoney, positiveMoney, rateSchema } from '../../lib/money';
 import { requireOwnedRef } from '../../lib/ownership';
 import { guarded } from '../../lib/sensitive';
 import { audit } from '../audit/audit.service';
+import { providerStatus, refreshPrices } from '../market-data/market-data.service';
 import { decorateInvestment, investmentDetails, portfolio, recordInvestmentTransaction } from './investments.service';
 
 const r = apiRouter('/investments', 'Investments');
@@ -75,6 +76,16 @@ r.get('/', {
 r.get('/portfolio', {
   summary: 'Portfolio totals, allocation, XIRR and data-source disclosure',
   handler: ({ user }) => portfolio(user.id),
+});
+
+r.get('/market-data', {
+  summary: 'Which market data provider is configured and what it covers',
+  handler: () => providerStatus(),
+});
+
+r.post('/refresh-prices', {
+  summary: 'Fetch prices from the configured verified provider (AMFI NAVs for mutual funds)',
+  handler: ({ user }) => refreshPrices(user.id),
 });
 
 r.post('/', {
