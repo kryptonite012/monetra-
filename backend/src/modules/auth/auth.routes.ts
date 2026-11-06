@@ -2,7 +2,11 @@ import { apiRouter } from '../../lib/http';
 import { notFound } from '../../lib/errors';
 import { loginSchema, registerSchema } from './auth.schemas';
 import { completeLogin, loadUserWithProfile, login, register } from './auth.service';
-import { setRefreshCookie } from './session.service';
+import { revokeByRefreshToken, rotateRefreshToken } from './refresh.service';
+import { clearRefreshCookie, REFRESH_COOKIE, revokeSession, setRefreshCookie } from './session.service';
+import { verifyAccessToken } from './tokens';
+import { audit } from '../audit/audit.service';
+import { unauthorized } from '../../lib/errors';
 
 const r = apiRouter('/auth', 'Auth');
 
@@ -35,6 +39,47 @@ r.post('/login', {
       expiresIn: result.session.expiresIn,
       user: result.user,
     };
+  },
+});
+
+r.post('/refresh', {
+  summary: 'Rotate the refresh token and obtain a new access token',
+  description: 'Uses the httpOnly refresh cookie. Reusing a rotated token revokes the entire session family.',
+  public: true,
+  handler: async ({ req, res }) => {
+    const token = req.cookies?.[REFRESH_COOKIE];
+    if (!token) throw unauthorized('No active session', 'SESSION_EXPIRED');
+    try {
+      const session = await rotateRefreshToken(token, req);
+      setRefreshCookie(res, session.refreshToken);
+      return { accessToken: session.accessToken, expiresIn: session.expiresIn };
+    } catch (err) {
+      if ((err as { code?: string }).code !== 'REFRESH_RACE') clearRefreshCookie(res);
+      throw err;
+    }
+  },
+});
+
+r.post('/logout', {
+  summary: 'Sign out of the current session',
+  public: true,
+  handler: async ({ req, res }) => {
+    const token = req.cookies?.[REFRESH_COOKIE];
+    let userId: string | null = null;
+    if (token) userId = await revokeByRefreshToken(token);
+    const header = req.get('authorization');
+    if (header?.startsWith('Bearer ')) {
+      try {
+        const claims = verifyAccessToken(header.slice(7));
+        await revokeSession(claims.sid, 'logout');
+        userId ??= claims.sub;
+      } catch {
+        // An expired access token is fine here: the cookie identifies the session.
+      }
+    }
+    clearRefreshCookie(res);
+    if (userId) await audit({ action: 'auth.logout', userId, actorId: userId, req });
+    return undefined;
   },
 });
 
