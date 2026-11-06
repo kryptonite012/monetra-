@@ -7,6 +7,7 @@ import { findOwned } from '../../lib/ownership';
 import { guarded, looksLikeAccountNumber } from '../../lib/sensitive';
 import { audit } from '../audit/audit.service';
 import { accountsSummary, balanceAsOf, getAccount, listAccounts } from './accounts.service';
+import { accountStatement, reconcile } from './reconciliation.service';
 
 const r = apiRouter('/accounts', 'Accounts');
 
@@ -144,6 +145,31 @@ r.post('/:id/reopen', {
     await audit({ action: 'account.reopened', req, entityType: 'account', entityId: params.id });
     return getAccount(user.id, params.id);
   },
+});
+
+r.post('/:id/reconcile', {
+  summary: 'Reconcile against a bank statement balance (optionally posting an adjustment)',
+  params: idParams,
+  body: z.object({ asOfDate: isoDate, statementBalance: moneySchema, postAdjustment: z.boolean().default(false), note: optionalText(500) }),
+  handler: ({ user, params, body, req }) => reconcile(user.id, params.id, body, req),
+});
+
+r.get('/:id/reconciliations', {
+  summary: 'Reconciliation history for an account',
+  params: idParams,
+  handler: async ({ user, params }) => {
+    await findOwned('accounts', params.id, user.id, 'Account');
+    return db('account_balances').where({ account_id: params.id }).orderBy('as_of_date', 'desc');
+  },
+});
+
+r.get('/:id/statement', {
+  summary: 'Account statement with running balance',
+  params: idParams,
+  query: z
+    .object({ from: isoDate, to: isoDate })
+    .refine((q) => q.from <= q.to, 'from must be on or before to'),
+  handler: ({ user, params, query }) => accountStatement(user.id, params.id, query.from, query.to),
 });
 
 r.delete('/:id', {
