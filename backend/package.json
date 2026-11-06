@@ -21,7 +21,8 @@
     "migrate": "tsx src/db/migrate.ts latest",
     "migrate:rollback": "tsx src/db/migrate.ts rollback",
     "migrate:status": "tsx src/db/migrate.ts status",
-    "migrate:prod": "node dist/db/migrate.js latest"
+    "migrate:prod": "node dist/db/migrate.js latest",
+    "admin:promote": "tsx src/scripts/create-admin.ts"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
