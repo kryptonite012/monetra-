@@ -6,6 +6,7 @@ import { badRequest, unauthorized, unprocessable } from '../../lib/errors';
 import { layout, sendMail } from '../../lib/mailer';
 import { checkPassword } from '../../lib/password-policy';
 import { audit } from '../audit/audit.service';
+import { notify } from '../notifications/notifications.service';
 import { revokeAllSessions } from './session.service';
 import { consumeAuthToken, createAuthToken } from './verification.service';
 
@@ -77,6 +78,7 @@ export async function changePassword(
   await db('users').where({ id: userId }).update({ password_hash: await hashPassword(newPassword), password_changed_at: db.fn.now() });
   const revokedSessions = await revokeAllSessions(userId, 'password_changed', sessionId);
   await audit({ action: 'auth.password_changed', userId, actorId: userId, req, metadata: { revokedSessions } });
+  await notify(userId, { type: 'security_alert', severity: 'warning', title: 'Password changed', body: 'Your password was changed and other devices were signed out.', actionUrl: '/settings/security' });
   await notifyPasswordChanged(user.email);
   return { revokedSessions };
 }

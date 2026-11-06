@@ -12,6 +12,7 @@ import {
 import { AppError, conflict, unauthorized, unprocessable } from '../../lib/errors';
 import { checkPassword } from '../../lib/password-policy';
 import { audit, clientInfo } from '../audit/audit.service';
+import { notify } from '../notifications/notifications.service';
 import { issueSession, type IssuedSession } from './session.service';
 import { toPublicUser } from './user.serializer';
 
@@ -118,6 +119,13 @@ export async function login(
     await recordLoginEvent(req, { userId: user.id, email, success: false, reason: lock ? 'bad_password_locked' : 'bad_password' });
     if (lock) {
       await audit({ action: 'auth.account_locked', userId: user.id, actorId: user.id, entityType: 'user', entityId: user.id, req });
+      await notify(user.id, {
+        type: 'security_alert',
+        severity: 'critical',
+        title: 'Account temporarily locked',
+        body: `We locked sign-in for ${config.ACCOUNT_LOCK_MINUTES} minutes after ${config.MAX_FAILED_LOGINS} incorrect password attempts. If this was not you, reset your password.`,
+        actionUrl: '/settings/security',
+      });
     }
     throw unauthorized('Incorrect email or password', 'INVALID_CREDENTIALS');
   }
@@ -139,7 +147,22 @@ export async function completeLogin(userId: string, req: Request | undefined, me
   const user = await db('users').where({ id: userId }).first();
   const session = await issueSession({ id: user.id, email: user.email, role: user.role }, req);
   await db('users').where({ id: user.id }).update({ last_login_at: db.fn.now() });
+  const { ip, userAgent } = clientInfo(req);
+  const knownDevice = await db('login_events')
+    .where({ user_id: user.id, success: true, user_agent: userAgent })
+    .whereNot({ reason: 'mfa_pending' })
+    .first('id');
   await recordLoginEvent(req, { userId: user.id, email: user.email, success: true, method });
+  if (!knownDevice && method !== 'registration') {
+    await notify(user.id, {
+      type: 'security_alert',
+      severity: 'warning',
+      title: 'New sign-in to your account',
+      body: `A new device signed in${ip ? ` from IP ${ip}` : ''}. If this was not you, revoke the session and change your password.`,
+      actionUrl: '/settings/security',
+      data: { userAgent },
+    });
+  }
   await audit({ action: 'auth.login', userId: user.id, actorId: user.id, entityType: 'session', entityId: session.sessionId, req, metadata: { method } });
   const fresh = await loadUserWithProfile(user.id);
   return { mfaRequired: false, session, user: fresh! };

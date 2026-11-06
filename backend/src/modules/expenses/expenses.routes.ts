@@ -7,6 +7,7 @@ import { apiRouter, envelope, idParams, isoDate, optionalText, pageMeta, paginat
 import { nonNegativeMoney, positiveMoney } from '../../lib/money';
 import { guarded } from '../../lib/sensitive';
 import { audit } from '../audit/audit.service';
+import { checkBudgetAlertsSoon } from '../notifications/alerts';
 import { registerRecurringHandler } from '../recurring/recurring.service';
 import { createExpense, deleteExpense, expenseAnalytics, expenseQuery, serializeExpense, updateExpense } from './expenses.service';
 
@@ -101,6 +102,7 @@ r.post('/', {
   handler: async ({ user, body, req }) => {
     const { record, warnings } = await createExpense(user.id, body);
     await audit({ action: 'expense.created', req, entityType: 'expense_record', entityId: record.id });
+    checkBudgetAlertsSoon(user.id, body.occurredOn);
     const [row] = await expenseQuery(user.id).where('e.id', record.id);
     return { ...serializeExpense(row), warnings };
   },

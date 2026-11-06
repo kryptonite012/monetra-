@@ -7,6 +7,7 @@ import { AppError, badRequest, unauthorized } from '../../lib/errors';
 import { base32Encode, generateTotpSecret, otpauthUrl, verifyTotp } from '../../lib/totp';
 import { randomBytes } from 'node:crypto';
 import { audit } from '../audit/audit.service';
+import { notify } from '../notifications/notifications.service';
 import { completeLogin, recordLoginEvent, type LoginResult } from './auth.service';
 import { createAuthToken } from './verification.service';
 
@@ -77,6 +78,7 @@ export async function enableMfa(userId: string, code: string, req?: Request): Pr
   });
   const codes = await replaceRecoveryCodes(userId);
   await audit({ action: 'auth.mfa_enabled', userId, actorId: userId, req });
+  await notify(userId, { type: 'security_alert', severity: 'success', title: 'Two-factor authentication enabled', body: 'Your account now requires an authenticator code at sign-in. Keep your recovery codes safe.', actionUrl: '/settings/security' });
   return codes;
 }
 
@@ -96,6 +98,7 @@ export async function disableMfa(userId: string, password: string, factor: { cod
     await trx('mfa_recovery_codes').where({ user_id: userId }).delete();
   });
   await audit({ action: 'auth.mfa_disabled', userId, actorId: userId, req });
+  await notify(userId, { type: 'security_alert', severity: 'critical', title: 'Two-factor authentication disabled', body: 'Two-factor authentication was turned off for your account. If this was not you, secure your account immediately.', actionUrl: '/settings/security' });
 }
 
 export async function regenerateRecoveryCodes(userId: string, code: string, req?: Request): Promise<string[]> {

@@ -19,10 +19,13 @@ import goalRoutes from './modules/goals/goals.routes';
 import investmentRoutes from './modules/investments/investments.routes';
 import { assets, liabilities, networth } from './modules/assets/assets.routes';
 import { bills, subscriptions } from './modules/bills/bills.routes';
+import notificationRoutes from './modules/notifications/notifications.routes';
+import { registerNotificationHooks } from './modules/notifications/hooks';
 import paymentMethodRoutes from './modules/payment-methods/payment-methods.routes';
 
 /** Mounts every versioned API module under /api/v1. */
 export function apiV1(): Router {
+  registerNotificationHooks();
   const router = Router();
   router.use('/auth', authRoutes);
   router.use('/auth', sessionRoutes);
@@ -51,6 +54,7 @@ export function apiV1(): Router {
   router.use('/net-worth', networth.router);
   router.use('/bills', bills.router);
   router.use('/subscriptions', subscriptions.router);
+  router.use('/notifications', notificationRoutes);
   router.use('/admin', adminRoutes);
   return router;
 }
