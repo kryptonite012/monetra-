@@ -1,3 +1,4 @@
+import { db } from '../../db/knex';
 import { apiRouter } from '../../lib/http';
 import { notFound } from '../../lib/errors';
 import { z } from 'zod';
@@ -8,6 +9,15 @@ import {
   sendEmailVerification,
   sendPhoneVerification,
 } from './verification.service';
+import {
+  completeMfaLogin,
+  createMfaChallenge,
+  disableMfa,
+  enableMfa,
+  regenerateRecoveryCodes,
+  remainingRecoveryCodes,
+  startMfaSetup,
+} from './mfa.service';
 import { completeLogin, loadUserWithProfile, login, register } from './auth.service';
 import { revokeByRefreshToken, rotateRefreshToken } from './refresh.service';
 import { clearRefreshCookie, REFRESH_COOKIE, revokeSession, setRefreshCookie } from './session.service';
@@ -38,7 +48,7 @@ r.post('/login', {
   public: true,
   body: loginSchema,
   handler: async ({ body, req, res }) => {
-    const result = await login(body.email, body.password, req);
+    const result = await login(body.email, body.password, req, createMfaChallenge);
     if (result.mfaRequired) return { mfaRequired: true, mfaToken: result.mfaToken };
     setRefreshCookie(res, result.session.refreshToken);
     return {
@@ -48,6 +58,57 @@ r.post('/login', {
       user: result.user,
     };
   },
+});
+
+const totpCode = z.string().regex(/^\d{6}$/, 'Enter the 6-digit code');
+const secondFactor = z
+  .object({ code: totpCode.optional(), recoveryCode: z.string().trim().min(10).max(20).optional() })
+  .refine((v) => Boolean(v.code) !== Boolean(v.recoveryCode), 'Provide either an authenticator code or a recovery code');
+
+r.post('/login/mfa', {
+  summary: 'Complete sign-in with an authenticator or recovery code',
+  public: true,
+  body: z.object({ mfaToken: z.string().min(20).max(200) }).and(secondFactor),
+  handler: async ({ body, req, res }) => {
+    const result = await completeMfaLogin(body.mfaToken, body, req);
+    if (result.mfaRequired) throw new Error('unreachable');
+    setRefreshCookie(res, result.session.refreshToken);
+    return { mfaRequired: false, accessToken: result.session.accessToken, expiresIn: result.session.expiresIn, user: result.user };
+  },
+});
+
+r.get('/mfa', {
+  summary: 'Two-factor authentication status',
+  handler: async ({ user }) => {
+    const row = await db('users').where({ id: user.id }).first('mfa_enabled', 'mfa_enabled_at');
+    return { enabled: Boolean(row.mfaEnabled), enabledAt: row.mfaEnabledAt, recoveryCodesRemaining: await remainingRecoveryCodes(user.id) };
+  },
+});
+
+r.post('/mfa/setup', {
+  summary: 'Begin TOTP setup (returns secret and QR code)',
+  handler: ({ user }) => startMfaSetup(user.id),
+});
+
+r.post('/mfa/enable', {
+  summary: 'Confirm TOTP setup and receive one-time recovery codes',
+  body: z.object({ code: totpCode }),
+  handler: async ({ body, user, req }) => ({ recoveryCodes: await enableMfa(user.id, body.code, req) }),
+});
+
+r.post('/mfa/disable', {
+  summary: 'Disable two-factor authentication',
+  body: z.object({ password: z.string().min(1).max(128) }).and(secondFactor),
+  handler: async ({ body, user, req }) => {
+    await disableMfa(user.id, body.password, body, req);
+    return { enabled: false };
+  },
+});
+
+r.post('/mfa/recovery-codes', {
+  summary: 'Regenerate recovery codes (invalidates the old ones)',
+  body: z.object({ code: totpCode }),
+  handler: async ({ body, user, req }) => ({ recoveryCodes: await regenerateRecoveryCodes(user.id, body.code, req) }),
 });
 
 r.post('/refresh', {
