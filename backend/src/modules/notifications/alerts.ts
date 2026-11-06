@@ -1,7 +1,7 @@
 import { db } from '../../db/knex';
 import { monthStart, todayIn } from '../../lib/dates';
 import { logger } from '../../lib/logger';
-import { money } from '../../lib/money';
+import { formatINR as money } from '../../lib/money';
 import { budgetUtilization } from '../budgets/budgets.service';
 import { notify } from './notifications.service';
 

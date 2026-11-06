@@ -4,6 +4,7 @@ import { badRequest, notFound } from '../../lib/errors';
 import { apiRouter, envelope, idParams, pageMeta, paginationQuery } from '../../lib/http';
 import { audit } from '../audit/audit.service';
 import { revokeAllSessions } from '../auth/session.service';
+import { runAllTasks } from '../../jobs/tasks';
 
 /**
  * Administration endpoints. Administrators manage accounts and review the
@@ -105,6 +106,16 @@ r.get('/audit-logs', {
     const [{ count }] = await base.clone().count({ count: '*' });
     const rows = await base.clone().orderBy('id', 'desc').limit(query.pageSize).offset((query.page - 1) * query.pageSize);
     return envelope(rows, pageMeta(query, Number(count)));
+  },
+});
+
+r.post('/jobs/run', {
+  summary: 'Run all background maintenance tasks now',
+  roles: ['admin'],
+  handler: async ({ user, req }) => {
+    const results = await runAllTasks();
+    await audit({ action: 'admin.jobs_run', actorId: user.id, req });
+    return results;
   },
 });
 

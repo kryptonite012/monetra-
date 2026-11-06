@@ -1,4 +1,4 @@
-import { money } from '../../lib/money';
+import { formatINR as money } from '../../lib/money';
 import { setRefreshReuseHook } from '../auth/refresh.service';
 import { setGoalMilestoneHook } from '../goals/goals.service';
 import { setRecurringReminderHook } from '../recurring/recurring.service';

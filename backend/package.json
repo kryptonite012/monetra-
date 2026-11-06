@@ -22,9 +22,12 @@
     "migrate:rollback": "tsx src/db/migrate.ts rollback",
     "migrate:status": "tsx src/db/migrate.ts status",
     "migrate:prod": "node dist/db/migrate.js latest",
-    "admin:promote": "tsx src/scripts/create-admin.ts"
+    "admin:promote": "tsx src/scripts/create-admin.ts",
+    "worker": "node dist/worker.js",
+    "dev:worker": "tsx watch src/worker.ts"
   },
   "dependencies": {
+    "bullmq": "^5.81.5",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "decimal.js": "^10.6.0",
