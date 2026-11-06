@@ -51,5 +51,9 @@ describe('categories, merchants and auto-categorisation', () => {
     expect(byRule.body.data).toMatchObject({ source: 'rule', categoryName: 'Fuel' });
     const rules = await api().get('/api/v1/categorization-rules').set(user.auth);
     expect(rules.body.data[0].timesApplied).toBe(1);
+
+    // Partial updates must not reset other fields to their defaults.
+    const patched = await api().patch(`/api/v1/categorization-rules/${rules.body.data[0].id}`).set(user.auth).send({ pattern: 'swiggy instamart' });
+    expect(patched.body.data).toMatchObject({ pattern: 'swiggy instamart', priority: 1, matchField: 'any' });
   });
 });

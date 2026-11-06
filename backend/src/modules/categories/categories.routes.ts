@@ -154,12 +154,15 @@ merchants.delete('/:id', {
 // ------------------------------------------------------- categorisation rules
 export const rules = apiRouter('/categorization-rules', 'Categories');
 
-const ruleBody = z.object({
+// Defaults live only on the create schema: zod keeps .default() values inside .partial(),
+// which would silently reset fields on PATCH.
+const ruleFields = z.object({
   pattern: z.string().trim().min(2).max(100),
-  matchField: z.enum(['any', 'description', 'merchant', 'upi']).default('any'),
+  matchField: z.enum(['any', 'description', 'merchant', 'upi']),
   categoryId: z.uuid(),
-  priority: z.number().int().min(1).max(1000).default(100),
+  priority: z.number().int().min(1).max(1000),
 });
+const ruleBody = ruleFields.extend({ matchField: ruleFields.shape.matchField.default('any'), priority: ruleFields.shape.priority.default(100) });
 
 rules.get('/', {
   summary: 'List auto-categorisation rules',
@@ -187,7 +190,7 @@ rules.post('/', {
 rules.patch('/:id', {
   summary: 'Update a rule',
   params: idParams,
-  body: ruleBody.partial(),
+  body: ruleFields.partial(),
   handler: async ({ user, params, body }) => {
     if (body.categoryId) await resolveCategory(user.id, body.categoryId);
     const patch = Object.fromEntries(
