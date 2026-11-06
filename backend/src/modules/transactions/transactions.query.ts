@@ -19,6 +19,7 @@ export const transactionFilters = paginationQuery.extend({
   minAmount: moneySchema.optional(),
   maxAmount: moneySchema.optional(),
   includeReversed: queryBool.optional(),
+  upiOnly: queryBool.optional(),
   sort: z.enum(['date_desc', 'date_asc', 'amount_desc', 'amount_asc']).default('date_desc'),
 });
 
@@ -43,6 +44,7 @@ export function applyFilters(q: Knex.QueryBuilder, f: Partial<TransactionFilters
   if (f.merchantId) q.where('t.merchant_id', f.merchantId);
   if (f.paymentMethodId) q.where('t.payment_method_id', f.paymentMethodId);
   if (f.paymentType) q.where('p.type', f.paymentType);
+  if (f.upiOnly) q.where((w) => w.where('p.type', 'upi').orWhereRaw(`t.metadata->>'channel' = 'upi'`));
   if (f.kind) q.whereIn('t.kind', f.kind.split(','));
   if (f.direction) q.where('t.direction', f.direction);
   if (f.from) q.where('t.occurred_on', '>=', f.from);
