@@ -20,6 +20,7 @@
     "test:integration": "vitest run tests/integration"
   },
   "dependencies": {
+    "decimal.js": "^10.6.0",
     "dotenv": "^17.4.2",
     "express": "^5.3.0",
     "pino": "^9.14.0",
