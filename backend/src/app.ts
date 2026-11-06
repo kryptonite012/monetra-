@@ -1,8 +1,10 @@
+import cookieParser from 'cookie-parser';
 import express, { type Express } from 'express';
 import pinoHttp from 'pino-http';
 import { logger } from './lib/logger';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { genRequestId } from './middleware/request-id';
+import { apiV1 } from './routes';
 
 export function createApp(): Express {
   const app = express();
@@ -18,10 +20,13 @@ export function createApp(): Express {
     }),
   );
   app.use(express.json({ limit: '1mb' }));
+  app.use(cookieParser());
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'monetra-api', time: new Date().toISOString() });
   });
+
+  app.use('/api/v1', apiV1());
 
   app.use(notFoundHandler);
   app.use(errorHandler);

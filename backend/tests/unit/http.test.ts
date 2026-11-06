@@ -9,16 +9,19 @@ function buildApp() {
   const r = apiRouter('/things', 'Things');
   r.post('/', {
     summary: 'Create a thing',
+    public: true,
     status: 201,
     body: z.object({ name: z.string().min(2), on: isoDate }),
     handler: ({ body }) => ({ ...body, created: true }),
   });
   r.get('/:id', {
     summary: 'Get a thing',
+    public: true,
     params: idParams,
     handler: ({ params }) => envelope({ id: params.id }, { cached: false }),
   });
-  r.delete('/:id', { summary: 'Delete', params: idParams, handler: () => undefined });
+  r.delete('/:id', { summary: 'Delete', public: true, params: idParams, handler: () => undefined });
+  r.get('/secret/area', { summary: 'Private', handler: () => ({ ok: true }) });
   const app = express();
   app.use(express.json());
   app.use('/things', r.router);
@@ -53,6 +56,12 @@ describe('apiRouter', () => {
   it('responds 204 when a handler returns nothing', async () => {
     const res = await request(app).delete('/things/7f5c6a4e-4a8b-4b7a-9f4e-2d4b1c3a9e10');
     expect(res.status).toBe(204);
+  });
+
+  it('requires authentication by default', async () => {
+    const res = await request(app).get('/things/secret/area');
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
   });
 
   it('records routes for API documentation', () => {

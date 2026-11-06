@@ -1,5 +1,8 @@
 import { Router, type Request, type RequestHandler, type Response } from 'express';
 import { z } from 'zod';
+import { requireAuth, requireRole } from '../middleware/auth';
+import type { AuthUser, Role } from '../types/auth';
+import { unauthorized } from './errors';
 
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 type Schema = z.ZodType | undefined;
@@ -11,6 +14,8 @@ export interface EndpointContext<B, Q, P> {
   body: B;
   query: Q;
   params: P;
+  /** The authenticated user (throws if accessed on a public endpoint without a session). */
+  readonly user: AuthUser;
 }
 
 export interface EndpointOptions<B extends Schema, Q extends Schema, P extends Schema> {
@@ -25,8 +30,10 @@ export interface EndpointOptions<B extends Schema, Q extends Schema, P extends S
   middleware?: RequestHandler[];
   /** When true the handler writes the response itself (files, streams). */
   raw?: boolean;
-  /** Marks the route as public in the API documentation. */
+  /** Endpoints require authentication unless marked public (secure by default). */
   public?: boolean;
+  /** Restricts the endpoint to these roles. */
+  roles?: Role[];
   handler: (ctx: EndpointContext<Infer<B>, Infer<Q>, Infer<P>>) => unknown | Promise<unknown>;
 }
 
@@ -41,6 +48,7 @@ interface RegisteredRoute {
   params?: z.ZodType;
   status: number;
   public: boolean;
+  roles?: Role[];
   raw: boolean;
 }
 
@@ -76,16 +84,21 @@ export function apiRouter(prefix: string, tag: string, baseMiddleware: RequestHa
       params: opts.params,
       status: opts.status ?? 200,
       public: Boolean(opts.public),
+      roles: opts.roles,
       raw: Boolean(opts.raw),
     });
 
     const handler: RequestHandler = async (req, res) => {
-      const ctx = {
+      const ctx: EndpointContext<Infer<B>, Infer<Q>, Infer<P>> = {
         req,
         res,
         body: (opts.body ? opts.body.parse(req.body ?? {}) : {}) as Infer<B>,
         query: (opts.query ? opts.query.parse(req.query) : {}) as Infer<Q>,
         params: (opts.params ? opts.params.parse(req.params) : {}) as Infer<P>,
+        get user(): AuthUser {
+          if (!req.user) throw unauthorized();
+          return req.user;
+        },
       };
       const result = await opts.handler(ctx);
       if (opts.raw || res.headersSent) return;
@@ -97,7 +110,9 @@ export function apiRouter(prefix: string, tag: string, baseMiddleware: RequestHa
       res.status(status).json(isEnvelope(result) ? result : { data: result });
     };
 
-    router[method](path, ...(opts.middleware ?? []), handler);
+    const guards: RequestHandler[] = opts.public ? [] : [requireAuth];
+    if (!opts.public && opts.roles?.length) guards.push(requireRole(...opts.roles));
+    router[method](path, ...guards, ...(opts.middleware ?? []), handler);
   }
 
   return {
