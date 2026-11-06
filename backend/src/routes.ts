@@ -14,6 +14,7 @@ import expenseRoutes from './modules/expenses/expenses.routes';
 import { expenseReceipts, receipts } from './modules/expenses/receipts.routes';
 import { expenseSplits, splits } from './modules/expenses/splits.routes';
 import budgetRoutes from './modules/budgets/budgets.routes';
+import loanRoutes from './modules/loans/loans.routes';
 import paymentMethodRoutes from './modules/payment-methods/payment-methods.routes';
 
 /** Mounts every versioned API module under /api/v1. */
@@ -38,6 +39,7 @@ export function apiV1(): Router {
   router.use('/receipts', receipts.router);
   router.use('/splits', splits.router);
   router.use('/budgets', budgetRoutes);
+  router.use('/loans', loanRoutes);
   router.use('/admin', adminRoutes);
   return router;
 }
