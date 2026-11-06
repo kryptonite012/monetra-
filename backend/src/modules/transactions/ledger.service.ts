@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Knex } from 'knex';
 import { db, type Db } from '../../db/knex';
+import { bumpUserCache } from '../../lib/cache';
 import { AppError, conflict, notFound, unprocessable } from '../../lib/errors';
 import { dec, money, storage } from '../../lib/money';
 import { requireOwnedRef } from '../../lib/ownership';
@@ -181,6 +182,7 @@ export async function postTransaction(input: PostInput, conn: Db = db): Promise<
       created_by: input.userId,
     })
     .returning('*');
+  bumpUserCache(input.userId);
   return { ...row, warnings };
 }
 
@@ -273,6 +275,7 @@ export async function reverseTransaction(userId: string, transactionId: string, 
     await conn('transactions').where({ id: leg.id }).update({ status: 'reversed', reversed_by_id: rev.id });
     reversals.push(rev);
   }
+  bumpUserCache(userId);
   return reversals;
 }
 

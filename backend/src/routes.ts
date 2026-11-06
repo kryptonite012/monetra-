@@ -21,6 +21,7 @@ import { assets, liabilities, networth } from './modules/assets/assets.routes';
 import { bills, subscriptions } from './modules/bills/bills.routes';
 import notificationRoutes from './modules/notifications/notifications.routes';
 import { registerNotificationHooks } from './modules/notifications/hooks';
+import dashboardRoutes from './modules/dashboard/dashboard.routes';
 import paymentMethodRoutes from './modules/payment-methods/payment-methods.routes';
 
 /** Mounts every versioned API module under /api/v1. */
@@ -55,6 +56,7 @@ export function apiV1(): Router {
   router.use('/bills', bills.router);
   router.use('/subscriptions', subscriptions.router);
   router.use('/notifications', notificationRoutes);
+  router.use('/dashboard', dashboardRoutes);
   router.use('/admin', adminRoutes);
   return router;
 }
