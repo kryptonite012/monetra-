@@ -2,7 +2,9 @@ import { db } from '../../db/knex';
 import { apiRouter } from '../../lib/http';
 import { notFound } from '../../lib/errors';
 import { z } from 'zod';
-import { loginSchema, phoneSchema, registerSchema } from './auth.schemas';
+import { passwordSchema } from '../../lib/password-policy';
+import { emailSchema, loginSchema, phoneSchema, registerSchema } from './auth.schemas';
+import { changePassword, requestPasswordReset, resetPassword } from './password.service';
 import {
   confirmEmailVerification,
   confirmPhoneVerification,
@@ -183,6 +185,34 @@ r.post('/verify-phone/confirm', {
     await confirmPhoneVerification(user.id, body.code, req);
     return { verified: true };
   },
+});
+
+r.post('/password/forgot', {
+  summary: 'Request a password reset email',
+  description: 'Always returns 202 so that the endpoint does not reveal which emails are registered.',
+  public: true,
+  status: 202,
+  body: z.object({ email: emailSchema }),
+  handler: async ({ body, req }) => {
+    await requestPasswordReset(body.email, req);
+    return { message: 'If an account exists for this email, a reset link has been sent.' };
+  },
+});
+
+r.post('/password/reset', {
+  summary: 'Set a new password using a reset token (signs out every session)',
+  public: true,
+  body: z.object({ token: z.string().min(20).max(200), password: passwordSchema }),
+  handler: async ({ body, req }) => {
+    await resetPassword(body.token, body.password, req);
+    return { reset: true };
+  },
+});
+
+r.post('/password/change', {
+  summary: 'Change password (other sessions are signed out)',
+  body: z.object({ currentPassword: z.string().min(1).max(128), newPassword: passwordSchema }),
+  handler: ({ body, user, req }) => changePassword(user.id, user.sessionId, body.currentPassword, body.newPassword, req),
 });
 
 r.get('/me', {
