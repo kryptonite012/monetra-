@@ -10,6 +10,7 @@ import transactionRoutes from './modules/transactions/transactions.routes';
 import upiRoutes from './modules/upi/upi.routes';
 import incomeRoutes from './modules/income/income.routes';
 import recurringRoutes from './modules/recurring/recurring.routes';
+import expenseRoutes from './modules/expenses/expenses.routes';
 import paymentMethodRoutes from './modules/payment-methods/payment-methods.routes';
 
 /** Mounts every versioned API module under /api/v1. */
@@ -28,6 +29,7 @@ export function apiV1(): Router {
   router.use('/upi', upiRoutes);
   router.use('/income', incomeRoutes);
   router.use('/recurring-rules', recurringRoutes);
+  router.use('/expenses', expenseRoutes);
   router.use('/admin', adminRoutes);
   return router;
 }
