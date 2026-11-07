@@ -14,6 +14,9 @@ import {
   type RateLimitOptions,
 } from './middleware/security';
 import { apiV1 } from './routes';
+import swaggerUi from 'swagger-ui-express';
+import helmet from 'helmet';
+import { buildOpenApiDocument } from './docs/openapi';
 import { isTest } from './config/env';
 
 export interface AppOptions {
@@ -51,6 +54,16 @@ export function createApp(options: AppOptions = {}): Express {
   app.use(['/api/v1/auth/refresh', '/api/v1/auth/logout'], csrfProtect);
 
   app.use('/api/v1', apiV1());
+
+  // API documentation (generated from the same zod schemas that validate requests).
+  const openapi = buildOpenApiDocument();
+  app.get('/api/openapi.json', (_req, res) => res.json(openapi));
+  app.use(
+    '/api/docs',
+    helmet.contentSecurityPolicy({ directives: { defaultSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'data:'], scriptSrc: ["'self'"] } }),
+    swaggerUi.serve,
+    swaggerUi.setup(openapi, { customSiteTitle: 'Monetra API', swaggerOptions: { persistAuthorization: false } }),
+  );
 
   app.use(notFoundHandler);
   app.use(errorHandler);
