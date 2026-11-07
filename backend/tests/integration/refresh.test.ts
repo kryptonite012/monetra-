@@ -24,12 +24,15 @@ describe('refresh token rotation', () => {
     expect(sessions[0].familyId).toEqual(sessions[1].familyId);
   });
 
-  it('treats an immediate replay as a multi-tab race', async () => {
+  it('lets a just-rotated token mint a sibling token (multi-tab race or interrupted reload)', async () => {
     const user = await createUser();
-    await refresh(user.cookie);
+    const first = await refresh(user.cookie);
+    expect(first.status).toBe(200);
     const replay = await refresh(user.cookie);
-    expect(replay.status).toBe(409);
-    expect(replay.body.error.code).toBe('REFRESH_RACE');
+    expect(replay.status).toBe(200);
+    expect(cookieValue(replay, 'monetra_rt')).not.toEqual(cookieValue(first, 'monetra_rt'));
+    const active = await db('sessions').where({ user_id: user.id }).whereNull('revoked_at');
+    expect(active).toHaveLength(2);
   });
 
   it('revokes the whole family when a rotated token is reused later', async () => {

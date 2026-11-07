@@ -1,13 +1,18 @@
 import type { Request } from 'express';
 import { db, withTransaction } from '../../db/knex';
 import { sha256 } from '../../lib/crypto';
-import { AppError, unauthorized } from '../../lib/errors';
+import { unauthorized } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { audit } from '../audit/audit.service';
 import { issueSession, type IssuedSession } from './session.service';
 
-/** A rotated token presented again within this window is treated as a benign multi-tab race. */
-const ROTATION_GRACE_MS = 5_000;
+/**
+ * A rotated token presented again within this window is treated as benign: two tabs refreshing at
+ * once, or a page reload that interrupted the previous refresh before the browser stored the new
+ * cookie. It mints a fresh token in the same family instead of signing the user out. After the
+ * window, reuse is treated as theft and the whole family is revoked.
+ */
+const ROTATION_GRACE_MS = 30_000;
 
 type ReuseHook = (userId: string, req?: Request) => Promise<void>;
 let onReuseDetected: ReuseHook | undefined;
@@ -32,7 +37,13 @@ export async function rotateRefreshToken(refreshToken: string, req?: Request): P
     if (session.revokedAt) {
       if (session.revokedReason === 'rotated') {
         const rotatedAgo = Date.now() - new Date(session.revokedAt).getTime();
-        if (rotatedAgo < ROTATION_GRACE_MS) return { kind: 'race' as const };
+        if (rotatedAgo < ROTATION_GRACE_MS) {
+          const familyAlive = await trx('sessions').where({ family_id: session.familyId }).whereNull('revoked_at').first('id');
+          const user = await trx('users').where({ id: session.userId }).first();
+          if (!familyAlive || !user || user.status !== 'active' || user.deletedAt) return { kind: 'invalid' as const };
+          const sibling = await issueSession({ id: user.id, email: user.email, role: user.role }, req, { familyId: session.familyId, parentId: session.id }, trx);
+          return { kind: 'ok' as const, session: sibling };
+        }
         await trx('sessions')
           .where({ family_id: session.familyId })
           .whereNull('revoked_at')
@@ -61,8 +72,6 @@ export async function rotateRefreshToken(refreshToken: string, req?: Request): P
   switch (outcome.kind) {
     case 'ok':
       return outcome.session;
-    case 'race':
-      throw new AppError(409, 'REFRESH_RACE', 'Session was refreshed by another tab; retry with the latest cookie');
     case 'reuse':
       logger.warn({ userId: outcome.userId, familyId: outcome.familyId }, 'refresh token reuse detected');
       await audit({ action: 'auth.refresh_reuse_detected', userId: outcome.userId, actorId: null, entityType: 'session_family', entityId: outcome.familyId, req });

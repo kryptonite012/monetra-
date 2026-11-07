@@ -40,7 +40,7 @@ const schema = z
     COOKIE_DOMAIN: z.string().optional(),
 
     RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
-    RATE_LIMIT_MAX: z.coerce.number().int().positive().default(600),
+    RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1500),
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
     MAX_FAILED_LOGINS: z.coerce.number().int().positive().default(5),
     ACCOUNT_LOCK_MINUTES: z.coerce.number().int().positive().default(15),

@@ -63,6 +63,10 @@ export async function refreshSession(): Promise<string | null> {
       }
       // Another tab rotated the token a moment ago: retry once with the updated cookie.
       if (res.status === 409) continue;
+      // Rate limiting or a server/network hiccup is not a sign-out: keep the session and surface an error.
+      if (res.status === 429 || res.status >= 500) {
+        throw new ApiError(res.status, res.status === 429 ? 'RATE_LIMITED' : 'SERVER_ERROR', res.status === 429 ? 'Too many requests. Please wait a moment.' : 'The server is unavailable. Please try again.');
+      }
       break;
     }
     accessToken = null;
@@ -88,7 +92,9 @@ async function request<T>(method: string, path: string, body?: unknown, retry = 
   });
 
   if (res.status === 401 && retry && !path.startsWith('/auth/login') && path !== '/auth/refresh') {
-    const token = await refreshSession();
+    const token = await refreshSession().catch((err: ApiError) => {
+      throw err;
+    });
     if (token) return request<T>(method, path, body, false);
     onSessionExpired?.();
   }
