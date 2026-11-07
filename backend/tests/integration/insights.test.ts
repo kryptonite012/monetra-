@@ -28,8 +28,8 @@ describe('assistant insights and forecasts', () => {
     const res = await api().get('/api/v1/assistant/insights').set(user.auth);
     const types = res.body.data.insights.map((i: { type: string }) => i.type);
     expect(types).toEqual(expect.arrayContaining(['top_category', 'savings_rate', 'anomaly', 'recurring_charge', 'forecast']));
-    const recurring = res.body.data.insights.find((i: { type: string }) => i.type === 'recurring_charge');
-    expect(recurring.title).toContain('FitZone Gym');
+    const recurring = res.body.data.insights.filter((i: { type: string }) => i.type === 'recurring_charge').map((i: { title: string }) => i.title);
+    expect(recurring).toContain('Recurring charge detected: FitZone Gym');
     const forecast = res.body.data.insights.find((i: { type: string }) => i.type === 'forecast');
     expect(forecast.assumptions.join(' ')).toMatch(/not guarantees/);
   });
