@@ -13,7 +13,7 @@ export interface Column<T> {
   hideOnMobile?: boolean;
 }
 
-export function DataTable<T extends { id?: string }>({ columns, rows, loading, empty, onRowClick, rowKey }: { columns: Column<T>[]; rows: T[] | undefined; loading?: boolean; empty?: ReactNode; onRowClick?: (row: T) => void; rowKey?: (row: T, i: number) => string }) {
+export function DataTable<T extends { id?: string | number }>({ columns, rows, loading, empty, onRowClick, rowKey }: { columns: Column<T>[]; rows: T[] | undefined; loading?: boolean; empty?: ReactNode; onRowClick?: (row: T) => void; rowKey?: (row: T, i: number) => string }) {
   if (loading && !rows) {
     return (
       <div className="space-y-2 p-5">
@@ -39,7 +39,7 @@ export function DataTable<T extends { id?: string }>({ columns, rows, loading, e
         <tbody>
           {rows.map((row, i) => (
             <tr
-              key={rowKey ? rowKey(row, i) : (row.id ?? String(i))}
+              key={rowKey ? rowKey(row, i) : String(row.id ?? i)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
               className={cn('border-b border-border/60 last:border-0', onRowClick && 'cursor-pointer hover:bg-surface-2/60')}
             >

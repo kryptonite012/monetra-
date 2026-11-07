@@ -49,7 +49,10 @@ export default function AssistantPage() {
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
 
-  useEffect(() => end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), [messages]);
+  useEffect(() => {
+    // Block body on purpose: scrollIntoView returns a Promise in newer browsers, which React must not treat as a cleanup.
+    end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages]);
 
   async function ask(q: string) {
     if (!q.trim() || busy) return;

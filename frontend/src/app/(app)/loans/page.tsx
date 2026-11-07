@@ -133,7 +133,7 @@ export default function LoansPage() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="font-semibold">{l.name}</p>
-                    <p className="text-xs text-muted">{l.lender} · {titleCase(l.loanType)} · {l.interestRate}% · {l.tenureMonths} months</p>
+                    <p className="text-xs text-muted">{l.lender} · {titleCase(l.loanType)} · {Number(l.interestRate)}% · {l.tenureMonths} months</p>
                   </div>
                   {l.status !== 'active' ? <Badge>{titleCase(l.status)}</Badge> : l.overdueCount ? <Badge tone="negative">{l.overdueCount} overdue</Badge> : <Badge tone="brand">EMI <Money value={l.emiAmount} /></Badge>}
                 </div>
@@ -199,7 +199,7 @@ export default function LoansPage() {
         }}
       />
 
-      <Modal open={!!viewing} onClose={() => setViewing(null)} title={detail?.name ?? ''} description={detail ? `${detail.lender} · ${detail.interestRate}% · EMI ${formatMoney(detail.emiAmount)}` : undefined} size="xl">
+      <Modal open={!!viewing} onClose={() => setViewing(null)} title={detail?.name ?? ''} description={detail ? `${detail.lender} · ${Number(detail.interestRate)}% · EMI ${formatMoney(detail.emiAmount)}` : undefined} size="xl">
         {detail && (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-4">
