@@ -1,0 +1,122 @@
+# Full Monetra stack for local use and evaluation:
+#   docker compose up --build        ->  http://localhost:8080
+# Mail sent by the app is captured by Mailpit at http://localhost:8025.
+name: monetra
+
+x-api-env: &api-env
+  NODE_ENV: ${NODE_ENV:-production}
+  APP_URL: ${APP_URL:-http://localhost:8080}
+  API_URL: ${APP_URL:-http://localhost:8080}
+  CORS_ORIGINS: ${APP_URL:-http://localhost:8080}
+  DATABASE_URL: postgres://${POSTGRES_USER:-monetra}:${POSTGRES_PASSWORD:-monetra}@postgres:5432/${POSTGRES_DB:-monetra}
+  REDIS_URL: redis://redis:6379
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}
+  DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?set DATA_ENCRYPTION_KEY in .env}
+  HASH_PEPPER: ${HASH_PEPPER:?set HASH_PEPPER in .env}
+  COOKIE_SECURE: ${COOKIE_SECURE:-false}
+  SMTP_HOST: ${SMTP_HOST:-mailpit}
+  SMTP_PORT: ${SMTP_PORT:-1025}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  MAIL_FROM: ${MAIL_FROM:-Monetra <no-reply@monetra.local>}
+  MARKET_DATA_PROVIDER: ${MARKET_DATA_PROVIDER:-none}
+  JOBS_MODE: bullmq
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-monetra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monetra}
+      POSTGRES_DB: ${POSTGRES_DB:-monetra}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monetra} -d ${POSTGRES_DB:-monetra}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      <<: *api-env
+      JOBS_ENABLED: "false"
+    volumes:
+      - appdata:/data
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    command: ["node", "dist/worker.js"]
+    environment:
+      <<: *api-env
+      JOBS_ENABLED: "true"
+    volumes:
+      - appdata:/data
+    depends_on:
+      api: { condition: service_healthy }
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+      - api
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-monetra}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-monetra}
+      PGDATABASE: ${POSTGRES_DB:-monetra}
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - ./backups:/backups
+      - ./infra/backup:/scripts:ro
+    entrypoint: ["sh", "/scripts/backup-loop.sh"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:
+  appdata:

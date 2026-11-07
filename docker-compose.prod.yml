@@ -1,0 +1,29 @@
+# Production overrides:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Requires a real SMTP server, TLS certificates in ./infra/certs and secrets in .env.
+services:
+  api:
+    environment:
+      NODE_ENV: production
+      COOKIE_SECURE: "true"
+      SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST}
+    deploy:
+      resources:
+        limits: { memory: 768M }
+  worker:
+    environment:
+      NODE_ENV: production
+      COOKIE_SECURE: "true"
+      SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST}
+  mailpit:
+    profiles: ["dev-only"]
+  nginx:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.tls.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/certs:/etc/nginx/certs:ro
+  postgres:
+    # Not published to the host in production; reachable only on the compose network.
+    ports: []

@@ -25,7 +25,9 @@
     "admin:promote": "tsx src/scripts/create-admin.ts",
     "worker": "node dist/worker.js",
     "dev:worker": "tsx watch src/worker.ts",
-    "docs:openapi": "tsx src/scripts/export-openapi.ts"
+    "docs:openapi": "tsx src/scripts/export-openapi.ts",
+    "seed": "tsx src/db/seed.ts",
+    "seed:prod": "node dist/db/seed.js"
   },
   "dependencies": {
     "bullmq": "^5.81.5",
@@ -41,7 +43,7 @@
     "jsonwebtoken": "^9.0.3",
     "knex": "^3.3.0",
     "multer": "^2.5.0",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "^10.2.1",
     "pdfkit": "^0.17.2",
     "pg": "^8.23.1",
     "pino": "^9.14.0",
@@ -58,7 +60,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.3.0",
     "@types/node": "^22.20.5",
-    "@types/nodemailer": "^6.4.24",
+    "@types/nodemailer": "^8.0.2",
     "@types/pdfkit": "^0.17.7",
     "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.6",
@@ -70,5 +72,8 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

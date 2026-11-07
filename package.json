@@ -9,12 +9,15 @@
     "node": ">=20.11"
   },
   "scripts": {
-    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "install:all": "npm --prefix backend install && npm --prefix frontend install && npm --prefix e2e install",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
+    "dev:worker": "npm --prefix backend run dev:worker",
     "migrate": "npm --prefix backend run migrate",
     "seed": "npm --prefix backend run seed",
-    "test": "npm --prefix backend test && npm --prefix frontend run typecheck",
-    "build": "npm --prefix backend run build && npm --prefix frontend run build"
+    "test": "npm --prefix backend test",
+    "test:e2e": "npm --prefix e2e test",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "docs:openapi": "npm --prefix backend run docs:openapi"
   }
 }
