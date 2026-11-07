@@ -36,7 +36,14 @@ export async function flowTotals(userId: string, from: string, to: string) {
 }
 
 /** Monthly income / expense / net series for the last N months (including the current one). */
-export async function cashflowSeries(userId: string, months: number) {
+export interface CashflowPoint extends Record<string, unknown> {
+  month: string;
+  income: string;
+  expenses: string;
+  net: string;
+}
+
+export async function cashflowSeries(userId: string, months: number): Promise<CashflowPoint[]> {
   const start = monthStart(addMonths(todayIn(), -(months - 1)));
   const { rows } = await db.raw(
     `SELECT to_char(m.month, 'YYYY-MM') AS month,

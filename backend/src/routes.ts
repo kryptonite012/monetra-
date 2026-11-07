@@ -23,6 +23,7 @@ import notificationRoutes from './modules/notifications/notifications.routes';
 import { registerNotificationHooks } from './modules/notifications/hooks';
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
 import reportRoutes from './modules/reports/reports.routes';
+import assistantRoutes from './modules/assistant/assistant.routes';
 import paymentMethodRoutes from './modules/payment-methods/payment-methods.routes';
 
 /** Mounts every versioned API module under /api/v1. */
@@ -59,6 +60,7 @@ export function apiV1(): Router {
   router.use('/notifications', notificationRoutes);
   router.use('/dashboard', dashboardRoutes);
   router.use('/reports', reportRoutes);
+  router.use('/assistant', assistantRoutes);
   router.use('/admin', adminRoutes);
   return router;
 }
