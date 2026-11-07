@@ -3,10 +3,26 @@ import { registeredRoutes } from '../lib/http';
 
 type JsonSchema = Record<string, unknown>;
 
+/**
+ * Dynamic defaults such as "today" are evaluated when the schema is converted;
+ * describe them instead so the published spec does not change every day.
+ */
+function stabiliseDefaults(node: unknown): void {
+  if (Array.isArray(node)) return node.forEach(stabiliseDefaults);
+  if (!node || typeof node !== 'object') return;
+  const obj = node as Record<string, unknown>;
+  if (typeof obj.default === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(obj.default)) {
+    delete obj.default;
+    obj.description = obj.description ?? 'Defaults to today (Asia/Kolkata)';
+  }
+  Object.values(obj).forEach(stabiliseDefaults);
+}
+
 function toSchema(schema: z.ZodType): JsonSchema {
   try {
     const out = z.toJSONSchema(schema, { io: 'input', unrepresentable: 'any', target: 'draft-2020-12' }) as JsonSchema;
     delete out.$schema;
+    stabiliseDefaults(out);
     return out;
   } catch {
     return { type: 'object' };
